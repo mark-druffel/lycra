@@ -55,6 +55,13 @@ USERS_HOME=/home/rstudio/
 R_LIBS_SITE=$USERS_HOME/site-library
 mkdir $R_LIBS_SITE
 
+#########################
+# 	Import Rprofile.site	
+#########################
+touch $R_HOME/etc/Rprofile.site
+echo "options(repos = c(CRAN = 'https://cran.rstudio.com/'), shiny.launch.browser = TRUE)" >> $R_HOME/etc/Rprofile.site
+echo ".Library.site <- $R_LIBS_SITE" >> $R_HOME/etc/Rprofile.site
+
 #################################
 # Retrieve Renviron.site file	#
 #################################
@@ -62,33 +69,33 @@ TMP_RENVIRON_FILE=$(mktemp)
 aws s3 cp $RENVIRON_FILE $TMP_RENVIRON_FILE
 
 #####################################################
-# Create Renviron.site								#
-# Add keys file with API keys to Renviron.site		#
+# 	Create Renviron.site								
+# 	Add keys file with API keys to Renviron.site		
 #####################################################
 Rscript -e "writeLines(c(trimws(paste0('R_LIBS_SITE=$R_LIBS_SITE:',Sys.getenv('R_LIBS_SITE')), whitespace = '[ \t\r\n]| '), trimws(paste0('R_LIBS_USER=$R_LIBS_SITE:',Sys.getenv('R_LIBS_USER')), whitespace = '[ \t\r\n]| ')), con = '$R_HOME/etc/Renviron.site', sep='\n')"
-echo 'PROPELLER_ENV=$PROPELLER_ENV' >> '$R_HOME/etc/Renviron.site'
-# sudo bash -c 'echo "PROPELLER_ENV=$PROPELLER_ENV" >> $R_HOME/etc/Renviron.site'
+echo 'SERVER_ENV=$SERVER_ENV' >> '$R_HOME/etc/Renviron.site'
+# sudo bash -c 'echo "SERVER_ENV=$SERVER_ENV" >> $R_HOME/etc/Renviron.site'
 cat '$TMP_RENVIRON_FILE' >> '$R_HOME/etc/Renviron.site'
 # sudo bash -c 'cat '$TMP_RENVIRON_FILE' >> '$R_HOME/etc/Renviron.site''
 
-#########################
-# Import Rprofile.site	#
-#########################
-wget -O $R_HOME/etc/Rprofile.site https://raw.githubusercontent.com/mark-druffel/ec2_configs/main/Rprofile.site
-
 #########################################################################
-# Source R Library Reference File	(i.e. what R libraries to install) 	#
+# 	Source R Library Reference File	(i.e. what R libraries to install) 	
 #########################################################################
-TMP_R_PKGS=$(mktemp)
-wget -O $TMP_R_PKGS https://raw.githubusercontent.com/mark-druffel/ec2_configs/main/r_pkgs
+TMP_R_PKGS=$TMP_EC2_SETUP_FILES/exec/r_pkgs
 
 #############################################################################################################################################################################
-# Install R Packages																																						#
-# Packages listed with no other info are installed using install.packages from the https://cloud.r-project.org repo															#
-# Packages listed with github are installed using install_github and if PROPELLER_ENV='stage' the stage branch is downloaded for github packages in all propeller repos 	#
-# Packages listed with something other than github are installed using install.packages with that something as the repo.													#
+# 	Install R Packages																																						
+# 	Packages listed with no other info are installed using install.packages from the https://cloud.r-project.org repo															
+# 	Packages listed with github are installed using install_github and if SERVER_ENV='stage' the stage branch is downloaded for github packages in all propeller repos 	
+# 	Packages listed with something other than github are installed using install.packages with that something as the repo.													
 #############################################################################################################################################################################
-Rscript -e "Sys.setenv('GITHUB_PAT'=substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('GITHUB_PAT=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('GITHUB_PAT=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('GITHUB_PAT=', readLines('$TMP_RENVIRON_FILE', warn = F))])))" -e "r_pkgs <- readLines('$TMP_R_PKGS', warn = F)[!grepl('#', readLines('$TMP_R_PKGS', warn = F))]" -e "r_pkgs <- r_pkgs[sapply(r_pkgs, nchar) > 0]" -e "get_pkgs <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][1]), trimws(pkg) ) }" -e "get_repos <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][2]), 'https://cran.rstudio.com/' ) }" -e "get_branches <- function(pkg, env){ ifelse( tolower(env) == 'stage' && grepl(pkg, pattern = 'propellerpdx'), '@stage', '' )}" -e "pkgs <- vapply(X = r_pkgs, FUN = get_pkgs, FUN.VALUE = character(1), USE.NAMES = F)" -e "repos <- vapply(X = r_pkgs, FUN = get_repos, FUN.VALUE = character(1), USE.NAMES = F)" -e "branches <- vapply(X = r_pkgs, FUN = get_branches, env = '$PROPELLER_ENV', FUN.VALUE = character(1), USE.NAMES = F)" -e "for(i in 1:length(pkgs) ){ if(tolower(repos[i]) != 'github'){ install.packages(pkgs[i], repos = if(repos[i]=='https://cran.rstudio.com/'){c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')} else{ repos[i] }, dependencies = T, ncpus = 4 )} else{ remotes::install_github(repo = paste0(pkgs[i], branches[i]), dependencies = T, upgrade = 'always' )} } "
+Rscript -e "Sys.setenv('GITHUB_PAT'=substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('GITHUB_PAT=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('GITHUB_PAT=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('GITHUB_PAT=', readLines('$TMP_RENVIRON_FILE', warn = F))])))" -e "r_pkgs <- readLines('$TMP_R_PKGS', warn = F)[!grepl('#', readLines('$TMP_R_PKGS', warn = F))]" -e "r_pkgs <- r_pkgs[sapply(r_pkgs, nchar) > 0]" -e "get_pkgs <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][1]), trimws(pkg) ) }" -e "get_repos <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][2]), 'https://cran.rstudio.com/' ) }" -e "get_branches <- function(pkg, env){ ifelse( tolower(env) == 'stage' && grepl(pkg, pattern = 'propellerpdx'), '@stage', '' )}" -e "pkgs <- vapply(X = r_pkgs, FUN = get_pkgs, FUN.VALUE = character(1), USE.NAMES = F)" -e "repos <- vapply(X = r_pkgs, FUN = get_repos, FUN.VALUE = character(1), USE.NAMES = F)" -e "branches <- vapply(X = r_pkgs, FUN = get_branches, env = '$SERVER_ENV', FUN.VALUE = character(1), USE.NAMES = F)" -e "for(i in 1:length(pkgs) ){ if(tolower(repos[i]) != 'github'){ install.packages(pkgs[i], repos = if(repos[i]=='https://cran.rstudio.com/'){c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')} else{ repos[i] }, dependencies = T, ncpus = 4 )} else{ remotes::install_github(repo = paste0(pkgs[i], branches[i]), dependencies = T, upgrade = 'always' )} } "
+
+######################################################################################################################
+#	Pull Slack tokens from Renviron.site, it doesn't seem to load during setup, might require server restart
+######################################################################################################################
+SLACK_BOT_WEBHOOK_URL=$("Rscript -e substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_WEBHOOK_URL=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('SLACK_BOT_WEBHOOK_URL=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_WEBHOOK_URL=', readLines('$TMP_RENVIRON_FILE', warn = F))]))")
+SLACK_BOT_USER_OAUTH_TOKEN=$("Rscript -e substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_USER_OAUTH_TOKEN=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('SLACK_BOT_USER_OAUTH_TOKEN=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_USER_OAUTH_TOKEN=', readLines('$TMP_RENVIRON_FILE', warn = F))]))")
 
 #################################################
 # Create user group	& company batch account		#
@@ -97,8 +104,7 @@ groupadd rstudioadmins
 TMP_PWD=$(openssl rand -base64 24)
 useradd -m -d $USERS_HOME -g sudo -G rstudioadmins -p $TMP_PWD $SERVICE_ACCOUNT
 usermod -a -G crontab $SERVICE_ACCOUNT
-Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "slackr::slackr_msg(glue::glue('New Server\nEnvironment: $PROPELLER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $SERVICE_ACCOUNT\n Pwd: $TMP_PWD'), channel = '#server_setup')"
-
+Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = $SLACK_BOT_WEBHOOK_URL, bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN))" -e "slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $SERVICE_ACCOUNT\n Pwd: $TMP_PWD'), channel = '#server_setups')"
 
 ####################################################################################################
 # Install Rstudio                                                                                  #    
@@ -119,12 +125,12 @@ rstudio-server restart
 # Add users and send passwords	#
 #################################
 TMP_USERS_FILE=$(mktemp)
-aws s3 cp $PROPELLER_USERS_FILE $TMP_USERS_FILE
+aws s3 cp $USERS_FILE $TMP_USERS_FILE
 while read line
 do 
 	TMP_USER=$(echo "$line" | cut -d '@' -f 1)
 	TMP_PWD=$(openssl rand -base64 24)
-	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$line')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $PROPELLER_ENV\nInstance ID: instance_id\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = dplyr::if_else(nrow(user_data)==0, '#server_setup', paste0('@',name)))"
+	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = $SLACK_BOT_WEBHOOK_URL, bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$line')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: instance_id\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = dplyr::if_else(nrow(user_data)==0, '#server_setups', paste0('@',name)))"
 	useradd -m -d $USERS_HOME -g users -G rstudioadmins -p $TMP_PWD $TMP_USER
 	usermod -a -G crontab $TMP_USER
 done < $TMP_USERS_FILE
@@ -200,7 +206,7 @@ service cron restart
 # Add password to rstudio account	# 
 # Copy setup logs to users path		#
 #####################################
-Rscript  --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "slackr_upload(filename = '/var/log/cloud-init-output.log', title = instance_id, channels = '#server_setup', bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN'))"
+Rscript  --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "slackr_upload(filename = '/var/log/cloud-init-output.log', title = instance_id, channels = '#server_setups', bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN)"
 cp /var/log/cloud-init-output.log $LOG_PATH
 
 #############
