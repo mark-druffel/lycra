@@ -99,7 +99,7 @@ groupadd rstudioadmins
 TMP_PWD=$(openssl rand -base64 24)
 useradd -d $USERS_HOME -g sudo -G rstudioadmins -p $TMP_PWD $SERVICE_ACCOUNT
 usermod -a -G crontab $SERVICE_ACCOUNT
-Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = $SLACK_BOT_WEBHOOK_URL, bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN))" -e "slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $SERVICE_ACCOUNT\n Pwd: $TMP_PWD'), channel = '#server_setups')"
+Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $SERVICE_ACCOUNT\n Pwd: $TMP_PWD'), channel = '#server_setups')"
 
 ####################################################################################################
 # Install Rstudio                                                                                  #    
@@ -125,7 +125,7 @@ while read line
 do 
 	TMP_USER=$(echo "$line" | cut -d '@' -f 1)
 	TMP_PWD=$(openssl rand -base64 24)
-	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = $SLACK_BOT_WEBHOOK_URL, bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$line')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: instance_id\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = dplyr::if_else(nrow(user_data)==0, '#server_setups', paste0('@',name)))"
+	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$line')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: instance_id\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = dplyr::if_else(nrow(user_data)==0, '#server_setups', paste0('@',name)))"
 	useradd -m -d $USERS_HOME -g users -G rstudioadmins -p $TMP_PWD $TMP_USER
 	usermod -a -G crontab $TMP_USER
 done < $TMP_USERS_FILE
@@ -201,7 +201,7 @@ service cron restart
 # Add password to rstudio account	# 
 # Copy setup logs to users path		#
 #####################################
-Rscript  --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "slackr_upload(filename = '/var/log/cloud-init-output.log', title = instance_id, channels = '#server_setups', bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN)"
+Rscript  --default-packages=slackr,aws.ec2metadata -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "slackr_upload(filename = '/var/log/cloud-init-output.log', title = instance_id, channels = '#server_setups', bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN'))"
 cp /var/log/cloud-init-output.log $LOG_PATH
 
 #############

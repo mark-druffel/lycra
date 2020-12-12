@@ -10,6 +10,11 @@ rlang
 remotes
 attempt
 glue
+rstudioapi
+credentials
+gert
+usethis
+testthat
 devtools
 rmarkdown
 tidyverse
@@ -66,7 +71,10 @@ applicable
 #############
 #	graph	#
 #############
+igraph
 tidygraph
+collapsibleTree
+networkD3
 
 #################
 #	spatial		#
@@ -108,7 +116,6 @@ aws.signature
 #########################
 # Propeller Packages	#
 #########################
-propellerpdx/propUtils, github
 propellerpdx/harvestR, github
 propellerpdx/bambooR, github
 propellerpdx/propUtils, github
