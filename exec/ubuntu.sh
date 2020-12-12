@@ -46,7 +46,7 @@ timedatectl set-timezone "America/Los_Angeles"
 #########################
 # Get R_HOME location 	#
 #########################
-R_HOME=$(Rscript -e "R.home())")
+R_HOME=$(echo Rscript -e 'paste0(R.home())')
 
 #########################
 # Create site library	#
@@ -102,7 +102,7 @@ SLACK_BOT_USER_OAUTH_TOKEN=$("Rscript -e substr(x = readLines('$TMP_RENVIRON_FIL
 #################################################
 groupadd rstudioadmins
 TMP_PWD=$(openssl rand -base64 24)
-useradd -m -d $USERS_HOME -g sudo -G rstudioadmins -p $TMP_PWD $SERVICE_ACCOUNT
+useradd -d $USERS_HOME -g sudo -G rstudioadmins -p $TMP_PWD $SERVICE_ACCOUNT
 usermod -a -G crontab $SERVICE_ACCOUNT
 Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = $SLACK_BOT_WEBHOOK_URL, bot_user_oauth_token = $SLACK_BOT_USER_OAUTH_TOKEN))" -e "slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $SERVICE_ACCOUNT\n Pwd: $TMP_PWD'), channel = '#server_setups')"
 
