@@ -29,14 +29,10 @@ apt -y install libxml2-dev
 apt -y install libcurl4-openssl-dev 
 apt -y install libharfbuzz-dev
 apt -y install libfribidi-dev
+apt -y install awscli
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
 add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/'
 apt -y install r-base
-TMP_AWS_CLI=$(mktemp)
-wget -O $TMP_AWS_CLI/awscli2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.0.30.zip
-cd $TMP_AWS_CLI
-unzip awscli2.zip
-./aws/install
 
 #################
 # Set local TZ	#
@@ -46,21 +42,24 @@ timedatectl set-timezone "America/Los_Angeles"
 #########################
 # Get R_HOME location 	#
 #########################
-R_HOME=$(echo Rscript -e 'paste0(R.home())')
+TMP_R_HOME=$(mktemp)
+Rscript -e "writeLines(trimws(paste('R_HOME=',R.home()), whitespace = '[ \t\r\n]| '), con = '$TMP_R_HOME', sep='\n')"
+source $TMP_R_HOME
 
 #########################
 # Create site library	#
 #########################
 USERS_HOME=/home/rstudio
 R_LIBS_SITE=$USERS_HOME/site-library
+mkdir $USERS_HOME
 mkdir $R_LIBS_SITE
 
 #########################
-# 	Import Rprofile.site	
+# 	Create Rprofile.site	
 #########################
 touch $R_HOME/etc/Rprofile.site
 echo "options(repos = c(CRAN = 'https://cran.rstudio.com/'), shiny.launch.browser = TRUE)" >> $R_HOME/etc/Rprofile.site
-echo ".Library.site <- $R_LIBS_SITE" >> $R_HOME/etc/Rprofile.site
+echo ".Library.site <- '$R_LIBS_SITE'" >> $R_HOME/etc/Rprofile.site
 
 #################################
 # Retrieve Renviron.site file	#
@@ -72,10 +71,12 @@ aws s3 cp $RENVIRON_FILE $TMP_RENVIRON_FILE
 # 	Create Renviron.site								
 # 	Add keys file with API keys to Renviron.site		
 #####################################################
-Rscript -e "writeLines(c(trimws(paste0('R_LIBS_SITE=$R_LIBS_SITE:',Sys.getenv('R_LIBS_SITE')), whitespace = '[ \t\r\n]| '), trimws(paste0('R_LIBS_USER=$R_LIBS_SITE:',Sys.getenv('R_LIBS_USER')), whitespace = '[ \t\r\n]| ')), con = '$R_HOME/etc/Renviron.site', sep='\n')"
-echo 'SERVER_ENV=$SERVER_ENV' >> '$R_HOME/etc/Renviron.site'
+TMP_R_LIBS_SITE_ENV_VAR=$(mktemp)
+Rscript -e "writeLines(c(trimws(paste0('R_LIBS_SITE=$R_LIBS_SITE:',Sys.getenv('R_LIBS_SITE')), whitespace = '[ \t\r\n]| '), trimws(paste0('R_LIBS_USER=$R_LIBS_SITE:',Sys.getenv('R_LIBS_USER')), whitespace = '[ \t\r\n]| ')), con = '$TMP_R_LIBS_SITE_ENV_VAR', sep='\n')"
+cat $TMP_R_LIBS_SITE_ENV_VAR >> $R_HOME/etc/Renviron.site
+echo 'SERVER_ENV=$SERVER_ENV' >> $R_HOME/etc/Renviron.site
 # sudo bash -c 'echo "SERVER_ENV=$SERVER_ENV" >> $R_HOME/etc/Renviron.site'
-cat '$TMP_RENVIRON_FILE' >> '$R_HOME/etc/Renviron.site'
+cat $TMP_RENVIRON_FILE >> $R_HOME/etc/Renviron.site
 # sudo bash -c 'cat '$TMP_RENVIRON_FILE' >> '$R_HOME/etc/Renviron.site''
 
 #########################################################################
@@ -89,13 +90,7 @@ TMP_R_PKGS=$TMP_EC2_SETUP_FILES/exec/r_pkgs
 # 	Packages listed with github are installed using install_github and if SERVER_ENV='stage' the stage branch is downloaded for github packages in all propeller repos 	
 # 	Packages listed with something other than github are installed using install.packages with that something as the repo.													
 #############################################################################################################################################################################
-Rscript -e "Sys.setenv('GITHUB_PAT'=substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('GITHUB_PAT=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('GITHUB_PAT=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('GITHUB_PAT=', readLines('$TMP_RENVIRON_FILE', warn = F))])))" -e "r_pkgs <- readLines('$TMP_R_PKGS', warn = F)[!grepl('#', readLines('$TMP_R_PKGS', warn = F))]" -e "r_pkgs <- r_pkgs[sapply(r_pkgs, nchar) > 0]" -e "get_pkgs <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][1]), trimws(pkg) ) }" -e "get_repos <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][2]), 'https://cran.rstudio.com/' ) }" -e "get_branches <- function(pkg, env){ ifelse( tolower(env) == 'stage' && grepl(pkg, pattern = 'propellerpdx'), '@stage', '' )}" -e "pkgs <- vapply(X = r_pkgs, FUN = get_pkgs, FUN.VALUE = character(1), USE.NAMES = F)" -e "repos <- vapply(X = r_pkgs, FUN = get_repos, FUN.VALUE = character(1), USE.NAMES = F)" -e "branches <- vapply(X = r_pkgs, FUN = get_branches, env = '$SERVER_ENV', FUN.VALUE = character(1), USE.NAMES = F)" -e "for(i in 1:length(pkgs) ){ if(tolower(repos[i]) != 'github'){ install.packages(pkgs[i], repos = if(repos[i]=='https://cran.rstudio.com/'){c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')} else{ repos[i] }, dependencies = T, ncpus = 4 )} else{ remotes::install_github(repo = paste0(pkgs[i], branches[i]), dependencies = T, upgrade = 'always' )} } "
-
-######################################################################################################################
-#	Pull Slack tokens from Renviron.site, it doesn't seem to load during setup, might require server restart
-######################################################################################################################
-SLACK_BOT_WEBHOOK_URL=$("Rscript -e substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_WEBHOOK_URL=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('SLACK_BOT_WEBHOOK_URL=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_WEBHOOK_URL=', readLines('$TMP_RENVIRON_FILE', warn = F))]))")
-SLACK_BOT_USER_OAUTH_TOKEN=$("Rscript -e substr(x = readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_USER_OAUTH_TOKEN=', readLines('$TMP_RENVIRON_FILE', warn = F))], start = nchar('SLACK_BOT_USER_OAUTH_TOKEN=')+1, stop = nchar(readLines('$TMP_RENVIRON_FILE', warn = F)[grepl('SLACK_BOT_USER_OAUTH_TOKEN=', readLines('$TMP_RENVIRON_FILE', warn = F))]))")
+Rscript -e "r_pkgs <- readLines('$TMP_R_PKGS', warn = F)[!grepl('#', readLines('$TMP_R_PKGS', warn = F))]" -e "r_pkgs <- r_pkgs[sapply(r_pkgs, nchar) > 0]" -e "get_pkgs <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][1]), trimws(pkg) ) }" -e "get_repos <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][2]), 'https://cran.rstudio.com/' ) }" -e "get_branches <- function(pkg, env){ ifelse( tolower(env) == 'stage' && grepl(pkg, pattern = 'propellerpdx'), '@stage', '' )}" -e "pkgs <- vapply(X = r_pkgs, FUN = get_pkgs, FUN.VALUE = character(1), USE.NAMES = F)" -e "repos <- vapply(X = r_pkgs, FUN = get_repos, FUN.VALUE = character(1), USE.NAMES = F)" -e "branches <- vapply(X = r_pkgs, FUN = get_branches, env = '$SERVER_ENV', FUN.VALUE = character(1), USE.NAMES = F)" -e "for(i in 1:length(pkgs) ){ if(tolower(repos[i]) != 'github'){ install.packages(pkgs[i], repos = if(repos[i]=='https://cran.rstudio.com/'){c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')} else{ repos[i] }, dependencies = T, ncpus = 4 )} else{ remotes::install_github(repo = paste0(pkgs[i], branches[i]), dependencies = T, upgrade = 'always' )} } "
 
 #################################################
 # Create user group	& company batch account		#
