@@ -9,6 +9,7 @@ whoami
 rlang
 remotes
 attempt
+glue
 devtools
 rmarkdown
 tidyverse
