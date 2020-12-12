@@ -46,12 +46,12 @@ timedatectl set-timezone "America/Los_Angeles"
 #########################
 # Get R_HOME location 	#
 #########################
-R_HOME=$(Rscript -e "glue::glue({R.home()})")
+R_HOME=$(Rscript -e "R.home())")
 
 #########################
 # Create site library	#
 #########################
-USERS_HOME=/home/rstudio/
+USERS_HOME=/home/rstudio
 R_LIBS_SITE=$USERS_HOME/site-library
 mkdir $R_LIBS_SITE
 
