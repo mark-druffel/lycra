@@ -155,7 +155,7 @@ chown -R $SERVICE_ACCOUNT:rstudioadmins $R_HOME/etc/Renviron.site
 chmod -R 775 $R_HOME/etc/Renviron.site
 chown -R $SERVICE_ACCOUNT:rstudioadmins $R_HOME
 chmod -R 755 $R_HOME
-chown -R operations:rstudioadmins /home/$USERS_HOME/.ssh
+chown -R $SERVICE_ACCOUNT:rstudioadmins /home/$USERS_HOME/.ssh
 
 #####################################
 # Add cronR logging directories		#
