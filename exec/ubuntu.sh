@@ -121,11 +121,11 @@ rstudio-server restart
 #################################
 TMP_USERS_FILE=$(mktemp)
 aws s3 cp $USERS_FILE $TMP_USERS_FILE
-while read line
+while IFS= read -r line || [ -n "$line" ];
 do 
 	TMP_USER=$(echo "$line" | cut -d '@' -f 1)
 	TMP_PWD=$(openssl rand -base64 24)
-	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$line')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: instance_id\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = dplyr::if_else(nrow(user_data)==0, '#server_setups', paste0('@',name)))"
+	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = ' ')[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$line')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = paste0('@',name))"
 	useradd -m -d $USERS_HOME -g users -G rstudioadmins -p $TMP_PWD $TMP_USER
 	usermod -a -G crontab $TMP_USER
 done < $TMP_USERS_FILE
@@ -135,7 +135,7 @@ done < $TMP_USERS_FILE
 #####################################
 mkdir $USERS_HOME/.ssh
 cp ~/.ssh/authorized_keys $USERS_HOME/.ssh/authorized_keys 
-chown -R operations:rstudioadmins /home/propeller_operations/.ssh
+
 
 #####################################################################################################
 # read/write/execute access for service account & rstudio admins 									#
@@ -155,6 +155,7 @@ chown -R $SERVICE_ACCOUNT:rstudioadmins $R_HOME/etc/Renviron.site
 chmod -R 775 $R_HOME/etc/Renviron.site
 chown -R $SERVICE_ACCOUNT:rstudioadmins $R_HOME
 chmod -R 755 $R_HOME
+chown -R operations:rstudioadmins /home/$USERS_HOME/.ssh
 
 #####################################
 # Add cronR logging directories		#
@@ -168,6 +169,7 @@ chmod -R 775 $LOG_PATH
 # Turn on cron system logs by removing comment	#
 #################################################
 sed -i '/^#.*cron/s/^#//' /etc/rsyslog.d/50-default.conf
+systemctl restart rsyslog
 
 #####################
 # Create cron jobs	#
@@ -188,9 +190,9 @@ echo "2 0 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --y
 # Move crontab for scheduling		#
 # Change crontab file permissions	#
 #####################################
-cp $TMP_CRON_FILE /var/spool/cron/crontab/$SERVICE_ACCOUNT
-chmod 600 /var/spool/cron/crontab/$SERVICE_ACCOUNT
-touch /var/spool/cron/crontab/$SERVICE_ACCOUNT
+cp $TMP_CRON_FILE /var/spool/cron/crontabs/$SERVICE_ACCOUNT
+chmod 600 /var/spool/cron/crontabs/$SERVICE_ACCOUNT
+touch /var/spool/cron/crontabs/$SERVICE_ACCOUNT
 
 #################
 # Start cron 	#

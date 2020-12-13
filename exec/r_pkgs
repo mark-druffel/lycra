@@ -2,22 +2,27 @@
 #	core	#
 #############
 Rccp
+RCurl
+mime
+stringi
+plyr
+manipulate
 xml2
 httpuv
-httr
-whoami
-rlang
 remotes
-attempt
+askpass
+httr
 glue
-rstudioapi
-credentials
-gert
+rlang
+tidyverse
+whoami
+ragg
+docopt
+retry
+attempt
 usethis
 testthat
 devtools
-rmarkdown
-tidyverse
 ragg
 DBI
 data.table
@@ -25,13 +30,16 @@ memoise
 qs
 janitor
 cronR
-mrkaye97/slackr, github
+blastula
+credentials
+gert
 
 #####################
 # 	visualization	#
 #####################
 patchwork
 ggrepel
+r2d3
 sunburstR
 d3Network
 DT
@@ -43,56 +51,12 @@ kableExtra
 RColorBrewer
 viridis
 fontawesome
-
-#####################
-# 	time series		#
-#####################
-tsibble
-feasts
-fable
-fabletools
-tsibbletalk
-modeltime
-timetk
-
-#################
-#	modeling	#
-#################
-glmnet
-nnet
-tidymodels
-baguette
-themis
-tidyposterior
-butcher
-applicable
-
+timeDate
 
 #############
-#	graph	#
+#	web		
 #############
-igraph
-tidygraph
-collapsibleTree
-networkD3
-
-#################
-#	spatial		#
-#################
-sf
-leaflet
-rnaturalearth
-
-#############
-# 	NLP		#
-#############
-SnowballC
-tidytext
-textrecipes
-
-#############
-#	web		#
-#############
+plumber
 rvest
 miniUI
 reactR
@@ -105,19 +69,101 @@ shinythemes
 shinyBS
 
 #################
-# AWS Packages	#
+#	modeling	
 #################
+correlationfunnel
+glmnet
+nnet
+car
+tidymodels
+baguette
+themis
+tidyposterior
+butcher
+applicable
+tidybayes
+lime
+
+#######################
+# 	time series	\ fin	
+#######################
+forecast
+tsibble
+feasts
+fable
+fabletools
+tsibbletalk
+modeltime
+timetk
+tvm
+strand
+tidyquant
+modeltime
+modeltime.resample
+modeltime.ensemble
+anomalize
+sweep
+
+#############
+#	graph	#\
+#############
+igraph
+tidygraph
+DiagrammeR
+collapsibleTree
+networkD3
+
+#################
+#	spatial		
+#################
+maptools
+ggmap
+sf
+leaflet
+rnaturalearth
+
+#############
+# 	NLP		
+#############
+SnowballC
+tidytext
+textrecipes
+
+################
+#	bpa 
+################
+bupaR
+edeaR
+eventdataR
+processmapR
+processmonitR
+xesreadR
+petrinetR
+
+#############
+#	IaaS		
+#############
 aws.ec2, http://cloudyr.github.io/drat
 aws.ec2metadata
 aws.iam, http://cloudyr.github.io/drat
 aws.s3
 aws.signature
+analogsea
 
-#########################
-# Propeller Packages	#
-#########################
+###################
+# 	SaaS 	
+###################
+salesforcer
+mrkaye97/slackr, github
 propellerpdx/harvestR, github
 propellerpdx/bambooR, github
+
+#####################
+# pipeline
+#####################
+pointblank
+wlandau/targets, github
+emilyriederer/convo, github
 propellerpdx/propUtils, github
 propellerpdx/dataPipeline, github
 propellerpdx/reportPipeline, github
