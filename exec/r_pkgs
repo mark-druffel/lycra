@@ -3,6 +3,7 @@
 #############
 Rccp
 RCurl
+rstan
 mime
 stringi
 plyr
@@ -52,6 +53,7 @@ RColorBrewer
 viridis
 fontawesome
 timeDate
+ThinkR-open/attachment, github
 
 #############
 #	web		
@@ -67,6 +69,7 @@ golem
 shinyalert
 shinythemes
 shinyBS
+ThinkR-open/remedy, github
 
 #################
 #	modeling	
@@ -93,16 +96,18 @@ feasts
 fable
 fabletools
 tsibbletalk
-modeltime
 timetk
 tvm
 strand
 tidyquant
-modeltime
-modeltime.resample
-modeltime.ensemble
-anomalize
-sweep
+# Need to fix rstan installation
+# https://github.com/stan-dev/rstan/issues/884
+# https://github.com/stan-dev/rstan/wiki/Installing-RStan-from-Source#linux  --> https://github.com/stan-dev/rstan/wiki/Configuring-C-Toolchain-for-Linux
+# modeltime
+# modeltime.resample
+# modeltime.ensemble
+# anomalize
+# sweep
 
 #############
 #	graph	#\
