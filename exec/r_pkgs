@@ -1,6 +1,6 @@
-#############
-#	core	#
-#############
+#########
+# core	#
+#########
 Rccp
 RCurl
 rstan
@@ -10,7 +10,6 @@ plyr
 manipulate
 xml2
 httpuv
-remotes
 askpass
 httr
 glue

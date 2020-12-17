@@ -1,7 +1,7 @@
-doc <-'lycra install_packages
+doc <-'Install R packages from package list, see lycra github page for more details.
 
 Usage:
-  install_packages.R  --packages <path> [--envir <name>] [--user_home <directory>] [--Ncpus <int>] 
+  Rscript lycra_path/install_packages.R  --packages <path> [--envir <name>] [--user_home <directory>] [--Ncpus <int>] 
 
 Options:
  --envir <name>             Name of the environment which will be used as the github branch for all Propeller packages; defaults to main branch

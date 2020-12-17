@@ -1,7 +1,7 @@
-doc <-'lycra slack_server_setup
+doc <-'Slack service account details to the service account channel
 
 Usage:
-  slack_server_setup.R  --envir <path> --service_acconut <name> --pwd <pwd> 
+  Rscript lycra_path/slack_service_account_setup.R  --envir <path> --service_acconut <name> --pwd <pwd> 
 
 Options:
  --envir <name>             Name of the environment specified during the build; no default 
@@ -14,7 +14,7 @@ library(aws.ec2metadata)
 dns <- aws.ec2metadata::metadata$public_hostname()
 keypair_name <- stringr::str_split(aws.ec2metadata::metadata$public_key() , pattern = " ")[[1]][[3]] 
 instance_id <- aws.ec2metadata::metadata$instance_id() 
-channel = paste0("#server_setup_",tolower(opts$envir))
+channel <- paste0("#server_setup_", tolower(opts$envir))
 
 # slack -------------------------------------------------------------------
 library(slackr)

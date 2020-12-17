@@ -38,7 +38,6 @@ apt -y install libmariadbclient-dev
 apt -y install libgit2 
 apt -y install libv8-dev
 apt -y install libglpk-dev
-apt -y install aptitude
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
 add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/'
 apt -y install r-base
@@ -67,7 +66,7 @@ mkdir $R_LIBS_SITE
 # 	Create Rprofile.site	
 ############################
 touch $R_HOME/etc/Rprofile.site
-echo "options(repos = c(CRAN = 'https://cran.rstudio.com/'), shiny.launch.browser = TRUE)" >> $R_HOME/etc/Rprofile.site
+echo "options(repos = c(CRAN = c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')), shiny.launch.browser = TRUE)" >> $R_HOME/etc/Rprofile.site
 echo ".Library.site <- $R_LIBS_SITE" >> $R_HOME/etc/Rprofile.site
 
 ##################################
@@ -89,11 +88,11 @@ cat $TMP_RENVIRON_FILE >> $R_HOME/etc/Renviron.site
 # sudo bash -c 'cat '$TMP_RENVIRON_FILE' >> '$R_HOME/etc/Renviron.site''
 
 #########################################################################
-# 	Source R library reference file	(i.e. what R libraries to install) 	
+# 	Install docopt	
 #########################################################################
+Rscript -e "install.packages('docopt', dependencies = c('Depends','Imports'), Ncpus = $NCPUS)"
 TMP_R_PKGS=$TMP_EC2_SETUP_FILES/exec/r_pkgs
 # credentials & gert need an environment variable HOME for installation 
-export HOME=$USERS_HOME
 
 #############################################################################################################################################################################
 # 	Install R Packages
@@ -102,7 +101,7 @@ export HOME=$USERS_HOME
 # 	Packages listed with something other than github are installed using install.packages with that something as the repo.
 # 	https://github.com/stan-dev/rstan/wiki/Installing-RStan-from-Source#linux
 #############################################################################################################################################################################
-Rscript -e "r_pkgs <- readLines('$TMP_R_PKGS', warn = F)[!grepl('#', readLines('$TMP_R_PKGS', warn = F))]" -e "r_pkgs <- r_pkgs[sapply(r_pkgs, nchar) > 0]" -e "get_pkgs <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][1]), trimws(pkg) ) }" -e "get_repos <- function(pkg){ ifelse( grepl(pkg, pattern = ','), trimws(strsplit(pkg, split = ',')[[1]][2]), 'https://cran.rstudio.com/' ) }" -e "get_branches <- function(pkg, env){ ifelse( tolower(env) == 'stage' && grepl(pkg, pattern = 'propellerpdx'), '@stage', '' )}" -e "pkgs <- vapply(X = r_pkgs, FUN = get_pkgs, FUN.VALUE = character(1), USE.NAMES = F)" -e "repos <- vapply(X = r_pkgs, FUN = get_repos, FUN.VALUE = character(1), USE.NAMES = F)" -e "branches <- vapply(X = r_pkgs, FUN = get_branches, env = '$SERVER_ENV', FUN.VALUE = character(1), USE.NAMES = F)" -e "for(i in 1:length(pkgs) ){ if(tolower(repos[i]) != 'github'){ install.packages(pkgs[i], repos = if(repos[i]=='https://cran.rstudio.com/'){c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')} else{ repos[i] }, dependencies = T, ncpus = 4 )} else{ remotes::install_github(repo = paste0(pkgs[i], branches[i]), dependencies = T, upgrade = 'always' )} } "
+Rscript $TMP_EC2_SETUP_FILES/exec/install_packages.R --packages $TMP_R_PKGS --envir $SERVER_ENV --user_home $USERS_HOME --Ncpus $NCPUS
 
 #################################################
 # 	Create user group	& company batch account		
@@ -110,10 +109,28 @@ Rscript -e "r_pkgs <- readLines('$TMP_R_PKGS', warn = F)[!grepl('#', readLines('
 groupadd rstudioadmins
 #groupadd sftp
 TMP_PWD=$(openssl rand -base64 24)
-useradd -d $USERS_HOME -g sudo -G rstudioadmins -p $TMP_PWD $SERVICE_ACCOUNT
+useradd -d $USERS_HOME -g sudo -G rstudioadmins $SERVICE_ACCOUNT
 usermod -a -G crontab $SERVICE_ACCOUNT
 #usermod -a -G sftp $SERVICE_ACCOUNT
-Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = " ")[[1]][[3]]" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $SERVICE_ACCOUNT\n Pwd: $TMP_PWD'), channel = '#server_setups')"
+echo "$SERVICE_ACCOUNT:$TMP_PWD" | chpasswd
+# Slack the details to the locked channel, might want to write to S3 as alternative
+Rscript $TMP_EC2_SETUP_FILES/exec/slack_service_account_setup.R --envir $SERVER_ENV --service_account $SERVICE_ACCOUNT --pwd $TMP_PWD
+
+###################################
+# 	Add users and send passwords	
+###################################
+TMP_USERS_FILE=$(mktemp)
+aws s3 cp $USERS_FILE $TMP_USERS_FILE
+for user in `more $TMP_USERS_FILE`
+do 
+	TMP_USER=$(echo "$user" | cut -d '@' -f 1)
+	TMP_PWD=$(openssl rand -base64 24)
+	useradd -m -d $USERS_HOME -g users -G rstudioadmins $TMP_USER
+	usermod -a -G crontab $TMP_USER
+	#usermod -a -G sftp $TMP_USER
+	echo "$TMP_USER:$TMP_PWD" | chpasswd
+	Rscript $TMP_EC2_SETUP_FILES/exec/slack_user_account_setup.R --envir $SERVER_ENV --user_account $user --pwd $TMP_PWD
+done
 
 ####################################################################################################
 # 	Install Rstudio                                                                                      
@@ -131,29 +148,15 @@ rm -f -r $TMP_RSTUDIO_INSTALL
 R CMD javareconf
 rstudio-server restart
 
-###################################
-# 	Add users and send passwords	
-###################################
-TMP_USERS_FILE=$(mktemp)
-aws s3 cp $USERS_FILE $TMP_USERS_FILE
-for user in `more $TMP_USERS_FILE`
-do 
-	TMP_USER=$(echo "$user" | cut -d '@' -f 1)
-	TMP_PWD=$(openssl rand -base64 24)
-	Rscript --default-packages=slackr,stringr,aws.ec2metadata,magrittr,dplyr -e "dns <- aws.ec2metadata::metadata\$public_hostname()" -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "keypair_name <- stringr::str_split(aws.ec2metadata::metadata\$public_key() , pattern = ' ')[[1]][[3]]" -e "suppressWarnings(slackr::slackr_setup(incoming_webhook_url = Sys.getenv('SLACK_BOT_WEBHOOK_URL'), bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN')))" -e "user_data <- slackr::slackr_users() %>% dplyr::filter(email == '$user')" -e "user_data %$% slackr::slackr_msg(glue::glue('New Server\nEnvironment: $SERVER_ENV\nInstance ID: {instance_id}\nPublic DNS: {dns}\nKeypair Name: {keypair_name}\nUser: $TMP_USER\n Pwd: $TMP_PWD'), channel = paste0('@',name))"
-	useradd -m -d $USERS_HOME -g users -G rstudioadmins $TMP_USER
-	usermod -a -G crontab $TMP_USER
-	#usermod -a -G sftp $TMP_USER
-	echo "$TMP_USER:$TMP_PWD" | chpasswd
-done
-
 #######################################
 # 	Add ssh keys to user directory	
 # 	This isn't working, need to read the AWS documentation
 #######################################
 #mkdir $USERS_HOME/.ssh
 #cp ~/.ssh/authorized_keys $USERS_HOME/.ssh/authorized_keys 
-
+# Can import users keypairs from R, don't know if I can put all user keypairs in a shared home and just provide read only access to each .ssh file by user? 
+# aws.ec2metadata::metadata$item("meta-data/public-keys")
+# aws.ec2::describe_keypairs()
 
 #####################################################################################################
 # 	read/write/execute access for service account & rstudio admins 									
@@ -212,36 +215,42 @@ systemctl restart rsyslog
 #########################
 RSCRIPT_PATH=$R_HOME/bin/Rscript
 
-JOB_LOCATION=$R_LIBS_SITE/dataPipeline/exec/invoke.R
-JOB_NAME=dataPipeline_ytd
+
 TMP_CRON_FILE=$LOG_PATH/$SERVICE_ACCOUNT
 touch $TMP_CRON_FILE
-touch $LOG_PATH/$JOB_NAME.log
+
+JOB_LOCATION=$R_LIBS_SITE/dataPipeline/exec/invoke.R
+JOB_NAME=dataPipeline_ytd
+JOB_LOG=$LOG_PATH/$JOB_NAME.log
+touch $JOB_LOG
+echo "05 0 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-1)' --verbose T >> $JOB_LOG 2>&1" > $TMP_CRON_FILE
+
+JOB_LOCATION=$R_LIBS_SITE/dataPipeline/exec/invoke.R
+JOB_NAME=dataPipeline_jan_reruns
+JOB_LOG=$LOG_PATH/$JOB_NAME.log
+echo "0 3-23/3 1-21 1 * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-lubridate::days(x=30))' --verbose T >> $JOB_LOG 2>&1" >> $TMP_CRON_FILE
+
 chown -R $SERVICE_ACCOUNT:rstudioadmins $LOG_PATH/$JOB_NAME.log
 chmod -R 755 $LOG_PATH/$JOB_NAME.log
-echo "05 0-23/6 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year_expr 'lubridate::year(lubridate::today()-1)' --messaging T >> $LOG_PATH/$JOB_NAME.log 2>&1" > $TMP_CRON_FILE
-#Rscript --default-packages=cronR,stringr,lubridate,glue -e "package <- 'dataPipeline'" -e "exec <- 'invoke.R'" -e "dataPipeline_ytd_args <- c(r\"(--year_expr 'lubridate::year(lubridate::today()-1)')\", '--verbose T')" -e "dataPipeline_ytd_cmd <- cron_rscript(rscript = system.file('exec', exec, package = package), rscript_args = dataPipeline_ytd_args, rscript_log = sprintf('%s%s.log', '/home/$RSTUDIO_USER/logs/$cronR_job_id', '-%F%t%T'), log_append = F)" -e "cron_add(command = dataPipeline_ytd_cmd, id = 'dataPipeline_ytd', frequency = 'daily', at='2AM', tags = c('dataPipeline','ytd'), description = 'Daily dataPipeline ytd')"
 
 #######################################
 # 	Move crontab for scheduling		
 # 	Change crontab file permissions	
 #######################################
 cp $TMP_CRON_FILE /var/spool/cron/crontabs/$SERVICE_ACCOUNT
+chown  $SERVICE_ACCOUNT:crontab /var/spool/cron/crontabs/$SERVICE_ACCOUNT
 chmod 600 /var/spool/cron/crontabs/$SERVICE_ACCOUNT
-touch /var/spool/cron/crontabs/$SERVICE_ACCOUNT
 
 #################
 # 	Start cron 	
 #################
 service cron restart
 
-
-
 #######################################
 # 	Add password to rstudio account	 
 # 	Copy setup logs to users path		
 #######################################
-Rscript  --default-packages=slackr,aws.ec2metadata -e "instance_id <- aws.ec2metadata::metadata\$instance_id()" -e "slackr_upload(filename = '/var/log/cloud-init-output.log', title = instance_id, channels = '#server_setups', bot_user_oauth_token = Sys.getenv('SLACK_BOT_USER_OAUTH_TOKEN'))"
+Rscript $TMP_EC2_SETUP_FILES/exec/install_packages.R  --envir $SERVER_ENV
 cp /var/log/cloud-init-output.log $LOG_PATH
 
 ###############

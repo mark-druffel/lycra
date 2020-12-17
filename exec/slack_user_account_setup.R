@@ -1,11 +1,11 @@
-doc <-'lycra slack_user_setup
+doc <-'Slack user account details to the user, email used to match users in Slack
 
 Usage:
-  lycra slack_user_setup  --envir <path> --user_account <name> --pwd <pwd> 
+  Rscript lycra_path/slack_user_account_setup.R  --envir <path> --user_account <name> --pwd <pwd> 
 
 Options:
  --envir <name>           Name of the environment specified during the build; no default 
- --user_account <name>    User account name for login; no default
+ --user_account <name>    User account email (not username) which is used to find the slack account; no default
  --pwd <pwd>              User account pwd for login; no default'
 opts <- docopt::docopt(doc)
 
