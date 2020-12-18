@@ -1,7 +1,7 @@
 doc <-'Slack user account details to the user, email used to match users in Slack
 
 Usage:
-  Rscript lycra_path/slack_user_account_setup.R  --envir <path> --user_account <name> --pwd <pwd> 
+  slack_user_account_setup.R  --envir <path> --user_account <name> --pwd <pwd> 
 
 Options:
  --envir <name>           Name of the environment specified during the build; no default 

@@ -1,15 +1,14 @@
 doc <-'Install R packages from package list, see lycra github page for more details.
 
 Usage:
-  Rscript lycra_path/install_packages.R  --packages <path> [--envir <name>] [--user_home <directory>] [--Ncpus <int>] 
+  install_packages.R  --packages <path> [--envir <name>] [--user_home <directory>] [--Ncpus <int>] 
 
 Options:
- --envir <name>             Name of the environment which will be used as the github branch for all Propeller packages; defaults to main branch
- --packages <path>          File with R packages to be installed in the specified format; no default
- --user_home <directory>    Directory of the shared user home, required by git for credentials library install; no default
- --Ncpus <int>              Number of cpus to us in the installation process, recommend maximum number machine can allocate; no default'
+--envir <name>             Name of the environment which will be used as the github branch for all Propeller packages; defaults to main branch
+--packages <path>          File with R packages to be installed in the specified format; no default
+--user_home <directory>    Directory of the shared user home, required by git for credentials library install; no default
+--Ncpus <int>              Number of cpus to us in the installation process, recommend maximum number machine can allocate; no default'
 opts <- docopt::docopt(doc)
-
 
 # helper functions --------------------------------------------------------
 read_rpkgs <- function(rpkgs, envir){

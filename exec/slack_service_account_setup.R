@@ -1,7 +1,7 @@
 doc <-'Slack service account details to the service account channel
 
 Usage:
-  Rscript lycra_path/slack_service_account_setup.R  --envir <path> --service_acconut <name> --pwd <pwd> 
+  slack_service_account_setup.R  --envir <path> --service_acconut <name> --pwd <pwd> 
 
 Options:
  --envir <name>             Name of the environment specified during the build; no default 

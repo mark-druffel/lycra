@@ -3,7 +3,7 @@
 doc <-'lycra slack_cloud_init
 
 Usage:
-  lycra slack_cloud_init  --envir <path> [ cloud_int <path> ]
+  test.R  --envir <path> [ cloud_int <path> ]
 
 Options:
  --envir <name>           Name of the environment specified during the build; no default 
