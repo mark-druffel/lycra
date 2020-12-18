@@ -5,6 +5,7 @@
 # 		https://cran.r-project.org/doc/manuals/R-admin.html#Installation  
 #		https://fahim-sikder.github.io/post/how-to-install-r-ubuntu-20/
 ###########################################################################
+echo "Installing apt dependencies"
 apt -y update
 apt -y upgrade
 apt -y install dirmngr gnupg apt-transport-https ca-certificates software-properties-common
@@ -45,11 +46,13 @@ apt -y install r-base
 #####################
 # 	Set local TZ	
 #####################
+echo "Setting local timezone"
 timedatectl set-timezone "America/Los_Angeles"
 
 ###########################
 # 	Get R_HOME location 	
 ###########################
+echo "Getting R_HOME"
 TMP_R_HOME=$(mktemp)
 Rscript -e "writeLines(trimws(paste('R_HOME=',R.home()), whitespace = '[ \t\r\n]| '), con = '$TMP_R_HOME', sep='\n')"
 source $TMP_R_HOME
@@ -57,21 +60,24 @@ source $TMP_R_HOME
 ###########################
 # 	Create site library	
 ###########################
+echo "Creating site library and users home"
 USERS_HOME=/home/rstudio
-R_LIBS_SITE=$USERS_HOME/site-library
+SITE_LIB=$USERS_HOME/site-library
 mkdir $USERS_HOME
-mkdir $R_LIBS_SITE
+mkdir $SITE_LIB
 
 ############################
 # 	Create Rprofile.site	
 ############################
+echo "Setting up Rprofile.site"
 touch $R_HOME/etc/Rprofile.site
-echo "options(repos = c(CRAN = c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/')), shiny.launch.browser = TRUE)" >> $R_HOME/etc/Rprofile.site
-echo ".Library.site <- $R_LIBS_SITE" >> $R_HOME/etc/Rprofile.site
+echo "options(repos = c(CRAN = c('http://cran.rstudio.com','https://cloud.r-project.org','https://ftp.osuosl.org/pub/cran/')), shiny.launch.browser = TRUE)" > $R_HOME/etc/Rprofile.site
+echo ".Library.site <- '$SITE_LIB'" >> $R_HOME/etc/Rprofile.site
 
 ##################################
 # 	Retrieve Renviron.site file	
 ##################################
+echo "Setting up Renviron.site"
 TMP_RENVIRON_FILE=$(mktemp)
 aws s3 cp $RENVIRON_FILE $TMP_RENVIRON_FILE
 
@@ -80,7 +86,7 @@ aws s3 cp $RENVIRON_FILE $TMP_RENVIRON_FILE
 # 	Add keys file with API keys to Renviron.site		
 #####################################################
 TMP_R_LIBS_SITE_ENV_VAR=$(mktemp)
-Rscript -e "writeLines(c(trimws(paste0('R_LIBS_SITE=$R_LIBS_SITE:',Sys.getenv('R_LIBS_SITE')), whitespace = '[ \t\r\n]| '), trimws(paste0('R_LIBS_USER=$R_LIBS_SITE:',Sys.getenv('R_LIBS_USER')), whitespace = '[ \t\r\n]| ')), con = '$TMP_R_LIBS_SITE_ENV_VAR', sep='\n')"
+Rscript -e "R_LIBS_SITE <- Sys.getenv('R_LIBS_SITE')" -e "R_LIBS_USER <- Sys.getenv('R_LIBS_USER')" -e "writeLines(c(trimws(paste0('R_LIBS_SITE=$SITE_LIB:',R_LIBS_SITE), whitespace = '[ \t\r\n]| '), trimws(paste0('R_LIBS_USER=$SITE_LIB:',R_LIBS_USER), whitespace = '[ \t\r\n]| ')), con = '$TMP_R_LIBS_SITE_ENV_VAR', sep='\n')"
 cat $TMP_R_LIBS_SITE_ENV_VAR >> $R_HOME/etc/Renviron.site
 echo "SERVER_ENV=$SERVER_ENV" >> $R_HOME/etc/Renviron.site
 # sudo bash -c 'echo "SERVER_ENV=$SERVER_ENV" >> $R_HOME/etc/Renviron.site'
@@ -90,9 +96,8 @@ cat $TMP_RENVIRON_FILE >> $R_HOME/etc/Renviron.site
 #########################################################################
 # 	Install docopt	
 #########################################################################
+echo "Installing docopt"
 Rscript -e "install.packages('docopt', dependencies = c('Depends','Imports'), Ncpus = $NCPUS)"
-TMP_R_PKGS=$TMP_EC2_SETUP_FILES/exec/r_pkgs
-# credentials & gert need an environment variable HOME for installation 
 
 #############################################################################################################################################################################
 # 	Install R Packages
@@ -101,11 +106,14 @@ TMP_R_PKGS=$TMP_EC2_SETUP_FILES/exec/r_pkgs
 # 	Packages listed with something other than github are installed using install.packages with that something as the repo.
 # 	https://github.com/stan-dev/rstan/wiki/Installing-RStan-from-Source#linux
 #############################################################################################################################################################################
+echo "Installing R pkgs"
+TMP_R_PKGS=$TMP_EC2_SETUP_FILES/exec/r_pkgs
 Rscript $TMP_EC2_SETUP_FILES/exec/install_packages.R --packages $TMP_R_PKGS --envir $SERVER_ENV --user_home $USERS_HOME --Ncpus $NCPUS
 
 #################################################
 # 	Create user group	& company batch account		
 #################################################
+echo "Setting up users groups and service account"
 groupadd rstudioadmins
 #groupadd sftp
 TMP_PWD=$(openssl rand -base64 24)
@@ -119,6 +127,7 @@ Rscript $TMP_EC2_SETUP_FILES/exec/slack_service_account_setup.R --envir $SERVER_
 ###################################
 # 	Add users and send passwords	
 ###################################
+echo "Setting up users from list"
 TMP_USERS_FILE=$(mktemp)
 aws s3 cp $USERS_FILE $TMP_USERS_FILE
 for user in `more $TMP_USERS_FILE`
@@ -136,6 +145,7 @@ done
 # 	Install Rstudio                                                                                      
 # 	Latest version: https://rstudio.com/products/rstudio/download-server/redhat-centos               
 ####################################################################################################
+echo "Installing RStudio"
 TMP_RSTUDIO_INSTALL=$(mktemp -d)
 sudo apt-get install gdebi-core
 wget -O $TMP_RSTUDIO_INSTALL/rstudio-server-1.3.1093-amd64.deb https://download2.rstudio.org/server/bionic/amd64/rstudio-server-1.3.1093-amd64.deb
@@ -147,6 +157,57 @@ rm -f -r $TMP_RSTUDIO_INSTALL
 #################################
 R CMD javareconf
 rstudio-server restart
+
+#######################################
+# 	Add cronR logging directories		
+#######################################
+echo "Setting up cron jobs"
+LOG_PATH=$USERS_HOME/logs
+mkdir $LOG_PATH
+chown -R $SERVICE_ACCOUNT:rstudioadmins $LOG_PATH
+chmod -R 775 $LOG_PATH
+
+#####################################################
+# 	Turn on cron system logs by removing comment	
+#####################################################
+sed -i '/^#.*cron/s/^#//' /etc/rsyslog.d/50-default.conf
+systemctl restart rsyslog
+
+#########################
+# 	Create cron jobs	
+#########################
+RSCRIPT_PATH=$R_HOME/bin/Rscript
+
+
+TMP_CRON_FILE=$LOG_PATH/$SERVICE_ACCOUNT
+touch $TMP_CRON_FILE
+
+JOB_LOCATION=$SITE_LIB/dataPipeline/exec/invoke.R
+JOB_NAME=dataPipeline_ytd
+JOB_LOG=$LOG_PATH/$JOB_NAME.log
+touch $JOB_LOG
+echo "05 0 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-1)' --verbose T >> $JOB_LOG 2>&1" > $TMP_CRON_FILE
+
+JOB_LOCATION=$SITE_LIB/dataPipeline/exec/invoke.R
+JOB_NAME=dataPipeline_jan_reruns
+JOB_LOG=$LOG_PATH/$JOB_NAME.log
+echo "0 3-23/3 1-21 1 * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-lubridate::days(x=30))' --verbose T >> $JOB_LOG 2>&1" >> $TMP_CRON_FILE
+
+chown -R $SERVICE_ACCOUNT:rstudioadmins $LOG_PATH/$JOB_NAME.log
+chmod -R 755 $LOG_PATH/$JOB_NAME.log
+
+#######################################
+# 	Move crontab for scheduling		
+# 	Change crontab file permissions	
+#######################################
+cp $TMP_CRON_FILE /var/spool/cron/crontabs/$SERVICE_ACCOUNT
+chown  $SERVICE_ACCOUNT:crontab /var/spool/cron/crontabs/$SERVICE_ACCOUNT
+chmod 600 /var/spool/cron/crontabs/$SERVICE_ACCOUNT
+
+#################
+# 	Start cron 	
+#################
+service cron restart
 
 #######################################
 # 	Add ssh keys to user directory	
@@ -169,6 +230,7 @@ rstudio-server restart
 # 	for:																								
 # 		R program (in theory allows service account to update version of R )								
 #####################################################################################################
+echo "Modifying permissions"
 chown -R $SERVICE_ACCOUNT:rstudioadmins $USERS_HOME
 chmod -R 775 $USERS_HOME
 chown -R $SERVICE_ACCOUNT:rstudioadmins $R_HOME/etc/Rprofile.site
@@ -195,61 +257,11 @@ chmod -R 755 $R_HOME
 #TMP_PWD_JOBVITE=$(openssl rand -base64 24)
 #useradd -m -d $TMP_SFTP_HOME/$vendor -g sftpjail -p $TMP_PWD $vendor
 
-
-#######################################
-# 	Add cronR logging directories		
-#######################################
-LOG_PATH=$USERS_HOME/logs
-mkdir $LOG_PATH
-chown -R $SERVICE_ACCOUNT:rstudioadmins $LOG_PATH
-chmod -R 775 $LOG_PATH
-
-#####################################################
-# 	Turn on cron system logs by removing comment	
-#####################################################
-sed -i '/^#.*cron/s/^#//' /etc/rsyslog.d/50-default.conf
-systemctl restart rsyslog
-
-#########################
-# 	Create cron jobs	
-#########################
-RSCRIPT_PATH=$R_HOME/bin/Rscript
-
-
-TMP_CRON_FILE=$LOG_PATH/$SERVICE_ACCOUNT
-touch $TMP_CRON_FILE
-
-JOB_LOCATION=$R_LIBS_SITE/dataPipeline/exec/invoke.R
-JOB_NAME=dataPipeline_ytd
-JOB_LOG=$LOG_PATH/$JOB_NAME.log
-touch $JOB_LOG
-echo "05 0 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-1)' --verbose T >> $JOB_LOG 2>&1" > $TMP_CRON_FILE
-
-JOB_LOCATION=$R_LIBS_SITE/dataPipeline/exec/invoke.R
-JOB_NAME=dataPipeline_jan_reruns
-JOB_LOG=$LOG_PATH/$JOB_NAME.log
-echo "0 3-23/3 1-21 1 * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-lubridate::days(x=30))' --verbose T >> $JOB_LOG 2>&1" >> $TMP_CRON_FILE
-
-chown -R $SERVICE_ACCOUNT:rstudioadmins $LOG_PATH/$JOB_NAME.log
-chmod -R 755 $LOG_PATH/$JOB_NAME.log
-
-#######################################
-# 	Move crontab for scheduling		
-# 	Change crontab file permissions	
-#######################################
-cp $TMP_CRON_FILE /var/spool/cron/crontabs/$SERVICE_ACCOUNT
-chown  $SERVICE_ACCOUNT:crontab /var/spool/cron/crontabs/$SERVICE_ACCOUNT
-chmod 600 /var/spool/cron/crontabs/$SERVICE_ACCOUNT
-
-#################
-# 	Start cron 	
-#################
-service cron restart
-
 #######################################
 # 	Add password to rstudio account	 
 # 	Copy setup logs to users path		
 #######################################
+echo "Sending cloud.init"
 Rscript $TMP_EC2_SETUP_FILES/exec/install_packages.R  --envir $SERVER_ENV
 cp /var/log/cloud-init-output.log $LOG_PATH
 
@@ -262,6 +274,7 @@ rm -f $TMP_RENVIRON_FILE
 rm -f $TMP_USERS_FILE
 rm -f $TMP_CRON_FILE
 unset HOME
+unset SITE_LIB
 #####################################################################################################
 # Install Shiny Server                                                                          	#    
 # Latest version: https://rstudio.com/products/shiny/download-server/redhat-centos/					#
