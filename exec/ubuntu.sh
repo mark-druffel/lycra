@@ -273,8 +273,6 @@ rm -f $TMP_RSTUDIO_INSTALL
 rm -f $TMP_RENVIRON_FILE
 rm -f $TMP_USERS_FILE
 rm -f $TMP_CRON_FILE
-unset HOME
-unset SITE_LIB
 #####################################################################################################
 # Install Shiny Server                                                                          	#    
 # Latest version: https://rstudio.com/products/shiny/download-server/redhat-centos/					#
