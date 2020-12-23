@@ -183,15 +183,15 @@ TMP_CRON_FILE=$LOG_PATH/$SERVICE_ACCOUNT
 touch $TMP_CRON_FILE
 
 JOB_LOCATION=$SITE_LIB/dataPipeline/exec/invoke.R
-JOB_NAME=dataPipeline_ytd
-JOB_LOG=$LOG_PATH/$JOB_NAME.log
+JOB_NAME=dataPipeline_ytd_
+JOB_LOG=$LOG_PATH/$JOB_NAME
 touch $JOB_LOG
-echo "05 0 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-1)' --verbose T >> $JOB_LOG 2>&1" > $TMP_CRON_FILE
+echo "05 1 * * * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-1)' --verbose T >> $JOB_LOG\`date +\%Y\%m\`_\`date +\%d\%H\%M\%S\`.log 2>&1" > $TMP_CRON_FILE
 
 JOB_LOCATION=$SITE_LIB/dataPipeline/exec/invoke.R
-JOB_NAME=dataPipeline_jan_reruns
-JOB_LOG=$LOG_PATH/$JOB_NAME.log
-echo "0 3-23/3 1-21 1 * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-lubridate::days(x=30))' --verbose T >> $JOB_LOG 2>&1" >> $TMP_CRON_FILE
+JOB_NAME=dataPipeline_jan_reruns_
+JOB_LOG=$LOG_PATH/$JOB_NAME
+echo "0 3-23/3 1-21 1 * $RSCRIPT_PATH --verbose --no-save --no-restore $JOB_LOCATION --year 'lubridate::year(lubridate::today()-lubridate::days(x=30))' --verbose T >> $JOB_LOG\`date +\%Y\%m\`_\`date +\%d\%H\%M\%S\`.log 2>&1" >> $TMP_CRON_FILE
 
 chown -R $SERVICE_ACCOUNT:rstudioadmins $LOG_PATH/$JOB_NAME.log
 chmod -R 755 $LOG_PATH/$JOB_NAME.log
