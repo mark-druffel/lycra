@@ -130,11 +130,11 @@ Rscript $TMP_EC2_SETUP_FILES/exec/slack_service_account_setup.R --envir $SERVER_
 echo "Setting up users from list"
 TMP_USERS_FILE=$(mktemp)
 aws s3 cp $USERS_FILE $TMP_USERS_FILE
-for user in `more $TMP_USERS_FILE`
+for user in `more $TMP_USERS_FILE`;
 do 
 	TMP_USER=$(echo "$user" | cut -d '@' -f 1)
 	TMP_PWD=$(openssl rand -base64 24)
-	useradd -m -d $USERS_HOME -g users -G rstudioadmins $TMP_USER
+	useradd -d $USERS_HOME -g rstudioadmins -G users $TMP_USER
 	usermod -a -G crontab $TMP_USER
 	#usermod -a -G sftp $TMP_USER
 	echo "$TMP_USER:$TMP_PWD" | chpasswd

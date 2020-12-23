@@ -11,7 +11,7 @@ Options:
 opts <- docopt::docopt(doc)
 
 # helper functions --------------------------------------------------------
-read_rpkgs <- function(rpkgs, envir){
+read_rpkgs <- function(rpkgs){
   # Remove commented lines
   rpkgs <- readLines(rpkgs, warn = F)[!grepl('#', readLines(rpkgs, warn = F))]
   # Remove blank lines
@@ -67,7 +67,7 @@ if('rstan' %in% pkgs | 'credentials' %in% pkgs ){
                    Ncpus = opts$Ncpus)
 }
 for(i in 1:length(pkgs) ){ 
-  if(pkg[i] == 'rstan'){
+  if(pkgs[i] == 'rstan'){
     # configure C++ toolchain; https://github.com/stan-dev/rstan/wiki/Configuring-C-Toolchain-for-Linux
     dotR <- file.path(Sys.getenv("HOME"), ".R")
     if (!file.exists(dotR)) dir.create(dotR)
@@ -78,7 +78,7 @@ for(i in 1:length(pkgs) ){
     withr::with_envvar(
       new = c('DOWNLOAD_STATIC_LIBV8' = '1'),
       install.packages(pkgs[i], repos = c('http://cran.rstudio.com','https://ftp.osuosl.org/pub/cran/','https://cran.wu.ac.at/'), dependencies = T, Ncpus = opts$Ncpus))
-  } else if(pkg[i] == 'credentials'){
+  } else if(pkgs[i] == 'credentials'){
     # create temporary environment variable for git to find shared user home, sharing org git credentials for installations; https://github.com/r-lib/credentials/issues/11
     withr::with_envvar(
       new = c('HOME' = opts$user_home),
